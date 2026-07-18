@@ -4,9 +4,9 @@ import { PrismaPg } from '@prisma/adapter-pg';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-  
+
   constructor() {
-    // Prisma 7 requires a driver adapter instead of datasourceUrl
+    console.log('DATABASE_URL cargada:', process.env.DATABASE_URL);
     const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
     super({ adapter });
   }
