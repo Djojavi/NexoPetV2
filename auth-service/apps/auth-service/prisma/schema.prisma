@@ -1,0 +1,18 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String   // Aquí guardaremos el hash de bcrypt, jamás texto plano
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users") // Buenas prácticas: nombrar la tabla en minúsculas y plural en la base de datos
+} 
