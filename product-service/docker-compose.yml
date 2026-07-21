@@ -1,0 +1,47 @@
+services:
+  # Base de datos propia del microservicio. NO se comparte con Auth.
+  product-db:
+    image: postgres:16-alpine
+    container_name: veterinaria-product-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      # Puerto host configurable (5434 por defecto) para no chocar con otras BD locales.
+      - '${POSTGRES_PORT}:5432'
+    volumes:
+      - postgres_product_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - veterinaria-network
+
+  # Microservicio TCP (opcional en dev; en local suele bastar `npm run start:dev`).
+  # Solo lo consume el API Gateway a través de la red compartida, nunca el frontend.
+  product-service:
+    build: .
+    container_name: veterinaria-product-service
+    depends_on:
+      product-db:
+        condition: service_healthy
+    environment:
+      # Dentro de la red de Docker se usa el nombre del servicio y el puerto interno 5432.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@product-db:5432/${POSTGRES_DB}?schema=public
+      PRODUCT_SERVICE_HOST: 0.0.0.0
+      PRODUCT_SERVICE_PORT: '3002'
+    ports:
+      - '3002:3002'
+    networks:
+      - veterinaria-network
+
+networks:
+  # Misma red que auth-service para poder unificar todo en el compose integrado.
+  veterinaria-network:
+    driver: bridge
+
+volumes:
+  postgres_product_data:
