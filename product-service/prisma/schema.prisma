@@ -1,0 +1,102 @@
+// Esquema de Prisma para product-service (dominio: mascotas + historial clínico).
+// Usa el patrón "driver-adapter" de Prisma 7 (igual que auth-service): el datasource
+// no lleva `url` (la conexión la inyecta PrismaPg en tiempo de ejecución desde DATABASE_URL).
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Species {
+  DOG
+  CAT
+  BIRD
+  RABBIT
+  REPTILE
+  RODENT
+  OTHER
+}
+
+enum Sex {
+  MALE
+  FEMALE
+  UNKNOWN
+}
+
+model Pet {
+  id        String    @id @default(uuid())
+  name      String
+  species   Species
+  breed     String?
+  birthDate DateTime?
+  weight    Float? // Si se envía, debe ser > 0 (validado en el DTO)
+  sex       Sex
+  photoUrl  String?
+  notes     String?
+  // Referencia opaca al user.id de auth-service. NO hay FK cruzada entre bases de datos:
+  // product-service tiene su propia DB y nunca comparte la de Auth.
+  ownerId   String
+
+  vaccines  Vaccine[]
+  surgeries Surgery[]
+  diagnoses Diagnosis[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@map("pets")
+}
+
+model Vaccine {
+  id           String    @id @default(uuid())
+  name         String
+  appliedDate  DateTime
+  nextDoseDate DateTime?
+  batchNumber  String?
+  notes        String?
+
+  petId String
+  pet   Pet    @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([petId])
+  @@map("vaccines")
+}
+
+model Surgery {
+  id            String   @id @default(uuid())
+  type          String
+  date          DateTime
+  description   String?
+  complications String?
+
+  petId String
+  pet   Pet    @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([petId])
+  @@map("surgeries")
+}
+
+model Diagnosis {
+  id          String   @id @default(uuid())
+  disease     String
+  isChronic   Boolean  @default(false)
+  diagnosedAt DateTime
+  treatment   String?
+  notes       String?
+
+  petId String
+  pet   Pet    @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([petId])
+  @@map("diagnoses")
+}
