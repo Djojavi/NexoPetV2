@@ -1,0 +1,188 @@
+services:
+
+  # ══════════════════════════════════════════════════════════════════
+  # BASES DE DATOS
+  # ══════════════════════════════════════════════════════════════════
+
+  auth-db:
+    image: postgres:16-alpine
+    container_name: nexopet-auth-db
+    environment:
+      POSTGRES_USER: ${AUTH_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${AUTH_POSTGRES_DB}
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${AUTH_POSTGRES_USER} -d ${AUTH_POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - veterinaria-network
+
+  product-db:
+    image: postgres:16-alpine
+    container_name: nexopet-product-db
+    environment:
+      POSTGRES_USER: ${PRODUCT_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${PRODUCT_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${PRODUCT_POSTGRES_DB}
+    volumes:
+      - postgres_product_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${PRODUCT_POSTGRES_USER} -d ${PRODUCT_POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - veterinaria-network
+
+  chat-db:
+    image: postgres:16-alpine
+    container_name: nexopet-chat-db
+    environment:
+      POSTGRES_USER: ${CHAT_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${CHAT_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${CHAT_POSTGRES_DB}
+    volumes:
+      - postgres_chat_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${CHAT_POSTGRES_USER} -d ${CHAT_POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - veterinaria-network
+
+  # ══════════════════════════════════════════════════════════════════
+  # MICROSERVICIOS
+  # ══════════════════════════════════════════════════════════════════
+
+  auth-service:
+    build:
+      context: ./auth-api-service
+      dockerfile: apps/auth-service/Dockerfile
+    container_name: nexopet-auth-service
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${AUTH_POSTGRES_USER}:${AUTH_POSTGRES_PASSWORD}@auth-db:5432/${AUTH_POSTGRES_DB}?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      EMAIL_HOST: ${EMAIL_HOST}
+      EMAIL_PORT: ${EMAIL_PORT}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
+      EMAIL_FROM: ${EMAIL_FROM}
+      EMAIL_TLS_REJECT_UNAUTHORIZED: ${EMAIL_TLS_REJECT_UNAUTHORIZED}
+    # Aplica migraciones antes de iniciar
+    command: sh -c "npx prisma migrate deploy --schema=apps/auth-service/prisma/schema.prisma && node dist/apps/auth-service/main"
+    networks:
+      - veterinaria-network
+
+  gateway:
+    build:
+      context: ./auth-api-service
+      dockerfile: apps/api-gateway/Dockerfile
+    container_name: nexopet-gateway
+    depends_on:
+      - auth-service
+      - product-service
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      PRODUCT_SERVICE_HOST: product-service
+      PRODUCT_SERVICE_PORT: '3002'
+    ports:
+      - '3000:3000'
+    networks:
+      - veterinaria-network
+
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    container_name: nexopet-product-service
+    depends_on:
+      product-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${PRODUCT_POSTGRES_USER}:${PRODUCT_POSTGRES_PASSWORD}@product-db:5432/${PRODUCT_POSTGRES_DB}?schema=public
+      PRODUCT_SERVICE_HOST: 0.0.0.0
+      PRODUCT_SERVICE_PORT: '3002'
+    networks:
+      - veterinaria-network
+
+  chat-service:
+    build:
+      context: ./chat-service
+      dockerfile: Dockerfile
+    container_name: nexopet-chat-service
+    depends_on:
+      chat-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${CHAT_POSTGRES_USER}:${CHAT_POSTGRES_PASSWORD}@chat-db:5432/${CHAT_POSTGRES_DB}?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: '3004'
+      CORS_ORIGIN: '*'
+    ports:
+      - '3004:3004'
+    networks:
+      - veterinaria-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nexopet-frontend
+    depends_on:
+      - gateway
+      - chat-service
+    ports:
+      - '80:80'
+    networks:
+      - veterinaria-network
+
+  # ══════════════════════════════════════════════════════════════════
+  # MONITOREO
+  # ══════════════════════════════════════════════════════════════════
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: nexopet-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - '9090:9090'
+    networks:
+      - veterinaria-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: nexopet-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - '4000:3000'
+    depends_on:
+      - prometheus
+    networks:
+      - veterinaria-network
+
+# ══════════════════════════════════════════════════════════════════
+# RED Y VOLÚMENES
+# ══════════════════════════════════════════════════════════════════
+
+networks:
+  veterinaria-network:
+    driver: bridge
+
+volumes:
+  postgres_auth_data:
+  postgres_product_data:
+  postgres_chat_data:
+  grafana_data:
