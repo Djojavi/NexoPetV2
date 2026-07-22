@@ -10,7 +10,7 @@ scrape_configs:
   - job_name: 'gateway'
     static_configs:
       - targets: ['gateway:3000']
-    metrics_path: '/metrics'
+    metrics_path: '/api/metrics'
 
   - job_name: 'chat-service'
     static_configs:
@@ -19,5 +19,5 @@ scrape_configs:
 
   - job_name: 'product-service'
     static_configs:
-      - targets: ['product-service:3002']
+      - targets: ['product-service:3003']
     metrics_path: '/metrics'

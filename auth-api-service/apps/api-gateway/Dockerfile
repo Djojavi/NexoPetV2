@@ -5,6 +5,7 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+RUN npx prisma generate --schema=apps/auth-service/prisma/schema.prisma
 RUN npm run build -- api-gateway
 RUN npm prune --omit=dev
 

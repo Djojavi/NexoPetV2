@@ -5,12 +5,14 @@ import { AppService } from './app.service';
 import { JwtStrategy } from './auth/jwt.strategy';
 import { PetsController } from './pets/pets.controller';
 import { UsersController } from './users/users.controller';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
+    MetricsModule,
     ClientsModule.register([
       {
-        name: 'AUTH_SERVICE', // Un "apodo" para inyectarlo después
+        name: 'AUTH_SERVICE',
         transport: Transport.TCP,
         options: {
           host: process.env.AUTH_SERVICE_HOST || 'auth-service',
