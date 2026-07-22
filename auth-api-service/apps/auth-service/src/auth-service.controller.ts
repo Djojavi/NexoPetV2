@@ -6,6 +6,12 @@ import { AuthServiceService } from './auth-service.service';
 export class AuthServiceController {
   constructor(private readonly authService: AuthServiceService) {}
 
+  // Listado de usuarios (para selectores del panel; filtro opcional por rol)
+  @MessagePattern('auth.users.list')
+  async listUsers(@Payload() data?: { role?: string }) {
+    return this.authService.listUsers(data?.role);
+  }
+
   // Escuchamos el patrón 'auth.register'
   @MessagePattern('auth.register')
   async register(@Payload() data: any) {

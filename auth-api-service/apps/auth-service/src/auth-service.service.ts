@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Role } from '@prisma/client';
 import { UsersService } from './users/users.service';
 import { EmailService } from './email/email.service';
 import * as bcrypt from 'bcrypt';
@@ -12,6 +13,17 @@ export class AuthServiceService {
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
   ) {}
+
+  // 0. LISTAR USUARIOS (para selectores del panel; p. ej. dueños de mascotas)
+  async listUsers(role?: string) {
+    // Solo aceptamos roles válidos del enum; cualquier otro valor se ignora
+    // (equivale a "sin filtro") para no romper la consulta.
+    const roleFilter =
+      role && (Object.values(Role) as string[]).includes(role)
+        ? (role as Role)
+        : undefined;
+    return this.usersService.listUsers(roleFilter);
+  }
 
   // 1. REGISTRO
   async register(data: any) {
