@@ -76,11 +76,14 @@ export class PetsService {
   async create(actor: ActorDto, dto: CreatePetDto): Promise<Pet> {
     assertActor(actor);
 
+    // Toda mascota debe quedar asociada a un cliente (ownerId). El ADMIN
+    // (veterinario) debe indicar a qué cliente pertenece; el USER (cliente) es
+    // siempre su propio dueño (se ignora cualquier ownerId que intente enviar).
     let ownerId: string;
     if (isStaff(actor.role)) {
       if (!dto.ownerId) {
         throw new BadRequestException(
-          'Debe proveer un ownerId para crear la mascota de un cliente',
+          'Debe asociar la mascota a un cliente (ownerId es obligatorio para el veterinario)',
         );
       }
       ownerId = dto.ownerId;

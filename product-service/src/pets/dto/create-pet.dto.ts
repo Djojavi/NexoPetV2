@@ -6,6 +6,7 @@ import {
   IsPositive,
   IsString,
   IsUrl,
+  IsUUID,
 } from 'class-validator';
 import { Species, Sex } from '@prisma/client';
 
@@ -44,10 +45,11 @@ export class CreatePetDto {
   @IsString()
   notes?: string;
 
-  // Solo lo usa el ADMIN (veterinario) al crear la mascota de un cliente. Para un
-  // USER (cliente) se ignora (el dueño siempre es él mismo). Regla en el servicio.
+  // Cliente dueño de la mascota. Obligatorio cuando crea el ADMIN (veterinario):
+  // toda mascota debe quedar asociada a un cliente. Para un USER (cliente) se ignora
+  // (el dueño siempre es él mismo). La obligatoriedad para ADMIN se valida en el
+  // servicio; aquí solo garantizamos el formato (el id de usuario en auth es un UUID).
   @IsOptional()
-  @IsString()
-  @IsNotEmpty()
+  @IsUUID('all', { message: 'ownerId debe ser el UUID de un cliente válido' })
   ownerId?: string;
 }
