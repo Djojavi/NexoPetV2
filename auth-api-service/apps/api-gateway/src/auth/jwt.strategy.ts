@@ -13,7 +13,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    // Aquí el payload es el objeto { sub: user.id, email: user.email } que definimos en Auth Service
-    return { userId: payload.sub, email: payload.email };
+    // El payload contiene { sub, email, role } — lo devolvemos para que esté disponible en req.user
+    return { userId: payload.sub, email: payload.email, role: payload.role };
   }
 }

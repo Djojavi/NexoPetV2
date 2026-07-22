@@ -47,8 +47,8 @@ export class AuthServiceService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // Generamos el payload para el JWT
-    const payload = { sub: user.id, email: user.email };
+    // Generamos el payload para el JWT (incluimos el rol para que los demás servicios lo puedan leer)
+    const payload = { sub: user.id, email: user.email, role: user.role };
     
     // Retornamos el token firmado
     return {
@@ -56,7 +56,8 @@ export class AuthServiceService {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        role: user.role,
       }
     };
   }
