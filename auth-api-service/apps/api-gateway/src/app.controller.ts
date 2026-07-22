@@ -18,4 +18,14 @@ export class AppController {
     // Enviamos el mensaje 'auth.login' por TCP al microservicio
     return this.authClient.send('auth.login', body);
   }
+
+  @Post('forgot-password')
+  forgotPassword(@Body() body: { email: string }) {
+    return this.authClient.send('auth.forgot-password', body);
+  }
+
+  @Post('reset-password')
+  resetPassword(@Body() body: { token: string; newPassword: string }) {
+    return this.authClient.send('auth.reset-password', body);
+  }
 }
