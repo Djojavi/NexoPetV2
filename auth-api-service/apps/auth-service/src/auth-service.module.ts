@@ -5,6 +5,7 @@ import { AuthServiceController } from './auth-service.controller';
 import { AuthServiceService } from './auth-service.service';
 import { UsersModule } from './users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -14,7 +15,8 @@ import { PrismaModule } from './prisma/prisma.module';
       envFilePath: '.env', // Asegura que lea el .env de la raíz
     }),
     PrismaModule, 
-    UsersModule,  
+    UsersModule,
+    EmailModule,
     JwtModule.register({
       global: true, 
       secret: process.env.JWT_SECRET || 'super_secret_key_2026', 

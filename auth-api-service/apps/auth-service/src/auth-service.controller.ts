@@ -18,4 +18,16 @@ export class AuthServiceController {
   async login(@Payload() data: any) {
     return this.authService.login(data);
   }
+
+  // Escuchamos el patrón 'auth.forgot-password'
+  @MessagePattern('auth.forgot-password')
+  async forgotPassword(@Payload() data: { email: string }) {
+    return this.authService.forgotPassword(data);
+  }
+
+  // Escuchamos el patrón 'auth.reset-password'
+  @MessagePattern('auth.reset-password')
+  async resetPassword(@Payload() data: { token: string; newPassword: string }) {
+    return this.authService.resetPassword(data);
+  }
 }
