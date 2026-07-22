@@ -1,0 +1,108 @@
+{
+  "title": "NexoPet - Chat Service",
+  "uid": "nexopet-chat",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Estado del Chat Service",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "up{job=\"chat-service\"}",
+          "legendFormat": "Chat Service"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } }, "type": "value" }
+          ],
+          "thresholds": {
+            "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Uso de Memoria (MB)",
+      "type": "timeseries",
+      "gridPos": { "x": 4, "y": 0, "w": 10, "h": 8 },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"chat-service\"} / 1024 / 1024",
+          "legendFormat": "Memoria RSS"
+        },
+        {
+          "expr": "process_heap_bytes{job=\"chat-service\"} / 1024 / 1024",
+          "legendFormat": "Heap Total"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "decmbytes" }
+      }
+    },
+    {
+      "id": 3,
+      "title": "CPU Segundos Totales",
+      "type": "timeseries",
+      "gridPos": { "x": 14, "y": 0, "w": 10, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"chat-service\"}[1m])",
+          "legendFormat": "CPU usage"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit" }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Event Loop Lag (ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "nodejs_eventloop_lag_seconds{job=\"chat-service\"} * 1000",
+          "legendFormat": "Event Loop Lag"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ms" }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Handles Activos (conexiones)",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 8, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "nodejs_active_handles_total{job=\"chat-service\"}",
+          "legendFormat": "Handles"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Uptime del proceso (horas)",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 8, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "process_start_time_seconds{job=\"chat-service\"}",
+          "legendFormat": "Start time"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" }
+      }
+    }
+  ],
+  "time": { "from": "now-30m", "to": "now" }
+}
