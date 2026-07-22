@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { JwtStrategy } from './auth/jwt.strategy';
 import { PetsController } from './pets/pets.controller';
+import { UsersController } from './users/users.controller';
 import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
@@ -11,11 +12,11 @@ import { MetricsModule } from './metrics/metrics.module';
     MetricsModule,
     ClientsModule.register([
       {
-        name: 'AUTH_SERVICE', // Un "apodo" para inyectarlo después
+        name: 'AUTH_SERVICE',
         transport: Transport.TCP,
         options: {
-          host: '127.0.0.1', // O 'auth-service' si ambos estuvieran en Docker
-          port: 3001,        // El mismo puerto que configuramos en el main.ts de Auth
+          host: process.env.AUTH_SERVICE_HOST || 'auth-service',
+          port: Number(process.env.AUTH_SERVICE_PORT) || 3001,
         },
       },
       {
@@ -28,7 +29,7 @@ import { MetricsModule } from './metrics/metrics.module';
       },
     ]),
   ],
-  controllers: [AppController, PetsController],
+  controllers: [AppController, PetsController, UsersController],
   providers: [AppService, JwtStrategy],
 })
 export class AppModule {}

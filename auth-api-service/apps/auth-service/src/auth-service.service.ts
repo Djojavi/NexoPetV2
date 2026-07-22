@@ -1,14 +1,29 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Role } from '@prisma/client';
 import { UsersService } from './users/users.service';
+import { EmailService } from './email/email.service';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthServiceService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) {}
+
+  // 0. LISTAR USUARIOS (para selectores del panel; p. ej. dueños de mascotas)
+  async listUsers(role?: string) {
+    // Solo aceptamos roles válidos del enum; cualquier otro valor se ignora
+    // (equivale a "sin filtro") para no romper la consulta.
+    const roleFilter =
+      role && (Object.values(Role) as string[]).includes(role)
+        ? (role as Role)
+        : undefined;
+    return this.usersService.listUsers(roleFilter);
+  }
 
   // 1. REGISTRO
   async register(data: any) {
@@ -48,7 +63,12 @@ export class AuthServiceService {
     }
 
     // Generamos el payload para el JWT (incluimos el rol para que los demás servicios lo puedan leer)
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+    };
     
     // Retornamos el token firmado
     return {
@@ -60,5 +80,55 @@ export class AuthServiceService {
         role: user.role,
       }
     };
+  }
+
+  // 3. SOLICITAR RESTABLECIMIENTO DE CONTRASEÑA
+  async forgotPassword(data: { email: string }) {
+    const user = await this.usersService.findOneByEmail(data.email);
+
+    // Respondemos siempre con éxito para no revelar si el correo existe
+    if (!user) {
+      return { message: 'Si el correo existe, recibirás un enlace de restablecimiento.' };
+    }
+
+    // Generamos un token seguro y su fecha de expiración (1 hora)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpiry = new Date(Date.now() + 60 * 60 * 1000);
+
+    await this.usersService.update(user.id, {
+      passwordResetToken: resetToken,
+      passwordResetExpiry: resetExpiry,
+    });
+
+    // Construimos la URL del frontend para el reset
+    const authUrl = process.env.AUTH_URL ?? 'http://localhost:3000';
+    const resetUrl = `${authUrl}/reset-password?token=${resetToken}`;
+
+    await this.emailService.sendPasswordResetEmail(user.email, resetUrl);
+
+    return { message: 'Si el correo existe, recibirás un enlace de restablecimiento.' };
+  }
+
+  // 4. RESTABLECER CONTRASEÑA
+  async resetPassword(data: { token: string; newPassword: string }) {
+    const user = await this.usersService.findOneByResetToken(data.token);
+
+    if (!user || !user.passwordResetExpiry) {
+      throw new BadRequestException('Token inválido o expirado');
+    }
+
+    if (user.passwordResetExpiry < new Date()) {
+      throw new BadRequestException('El token ha expirado');
+    }
+
+    const hashedPassword = await bcrypt.hash(data.newPassword, 10);
+
+    await this.usersService.update(user.id, {
+      password: hashedPassword,
+      passwordResetToken: null,
+      passwordResetExpiry: null,
+    });
+
+    return { message: 'Contraseña restablecida exitosamente' };
   }
 }

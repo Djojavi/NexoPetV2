@@ -6,6 +6,7 @@ import {
   IsPositive,
   IsString,
   IsUrl,
+  IsUUID,
 } from 'class-validator';
 import { Species, Sex } from '@prisma/client';
 
@@ -49,8 +50,8 @@ export class UpdatePetDto {
   notes?: string;
 
   // Reasignación de dueño: solo ADMIN (se descarta para USER/cliente en el servicio).
+  // Debe ser el UUID de un cliente válido.
   @IsOptional()
-  @IsString()
-  @IsNotEmpty()
+  @IsUUID('all', { message: 'ownerId debe ser el UUID de un cliente válido' })
   ownerId?: string;
 }

@@ -3,12 +3,16 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+const databaseUrl =
+  process.env.DATABASE_URL ??
+  "postgresql://postgres:root_password_2026@localhost:5432/auth_db?schema=public";
+
 export default defineConfig({
   schema: 'apps/auth-service/prisma/schema.prisma',
   migrations: {
     path: 'apps/auth-service/prisma/migrations',
   },
   datasource: {
-    url: process.env.DATABASE_URL,
+    url: databaseUrl,
   },
 });

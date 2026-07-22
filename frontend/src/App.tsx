@@ -5,6 +5,7 @@ import { AppLayout } from './components/layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { PetsPage } from './pages/PetsPage';
 import { ChatPage } from './pages/ChatPage';
@@ -47,6 +48,10 @@ function App() {
             </GuestRoute>
           }
         />
+
+        {/* Pública SIN GuestRoute: un usuario con sesión activa también puede
+            resetear su clave desde el enlace del correo. */}
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Protegidas: comparten AppLayout vía Outlet */}
         <Route

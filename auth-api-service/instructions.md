@@ -104,8 +104,8 @@ Respuesta exitosa:
 }
 ```
 
-> El JWT contiene el campo `role` en su payload (`USER` o `ADMIN`).  
-> El API Gateway expone `req.user.role` en todas las rutas protegidas con `JwtAuthGuard`.
+> El JWT contiene los campos `role` y `name` en su payload.  
+> El API Gateway expone `req.user.role` y `req.user.name` en todas las rutas protegidas con `JwtAuthGuard`.
 
 ---
 

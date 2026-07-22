@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { AuthServiceModule } from './auth-service.module'; // O AppModule, según cómo se llame tu archivo
+import { RpcAllExceptionsFilter } from './common/filters/rpc-exception.filter';
 
 async function bootstrap() {
   // En lugar de create(), usamos createMicroservice()
@@ -14,7 +15,11 @@ async function bootstrap() {
       },
     },
   );
-  
+
+  // Serializa las excepciones con su statusCode para que el gateway las re-mapee
+  // (mismo patrón que product-service).
+  app.useGlobalFilters(new RpcAllExceptionsFilter());
+
   await app.listen();
   console.log('Auth Microservice is listening on TCP port 3001');
 }

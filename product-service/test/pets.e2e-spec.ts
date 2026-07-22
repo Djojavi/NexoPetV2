@@ -214,6 +214,56 @@ describe('product-service (e2e)', () => {
       expect(list).toHaveLength(1);
       expect(list[0].name).toBe('Firulais');
     });
+
+    it('USER también puede buscar dentro de sus mascotas', async () => {
+      await createPetForA(); // Firulais (DOG) de user-A
+      await send('pet.create', {
+        actor: ADMIN,
+        data: {
+          name: 'Michi',
+          species: 'CAT',
+          sex: 'FEMALE',
+          ownerId: 'user-A',
+        },
+      });
+      // Mascota ajena que NO debe aparecer aunque coincida con la búsqueda.
+      await send('pet.create', {
+        actor: ADMIN,
+        data: {
+          name: 'Firulais',
+          species: 'DOG',
+          sex: 'MALE',
+          ownerId: 'user-B',
+        },
+      });
+
+      const list: any[] = (await send('pet.findAll', {
+        actor: USER_A,
+        search: 'firu',
+      })) as any[];
+      expect(list).toHaveLength(1);
+      expect(list[0].name).toBe('Firulais');
+      expect(list[0].ownerId).toBe('user-A');
+    });
+
+    it('la búsqueda por especie acepta la etiqueta en español', async () => {
+      await createPetForA(); // DOG
+      await send('pet.create', {
+        actor: ADMIN,
+        data: {
+          name: 'Michi',
+          species: 'CAT',
+          sex: 'FEMALE',
+          ownerId: 'user-B',
+        },
+      });
+      const list: any[] = (await send('pet.findAll', {
+        actor: ADMIN,
+        search: 'perro',
+      })) as any[];
+      expect(list).toHaveLength(1);
+      expect(list[0].species).toBe('DOG');
+    });
   });
 
   describe('pet.findOne', () => {
