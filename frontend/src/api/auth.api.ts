@@ -27,10 +27,19 @@ export async function register(
   return data;
 }
 
-/**
- * POST /api/auth/forgot-password — endpoint aún NO implementado en el backend.
- * Se deja tipado para que la UI lo consuma; manejar el error con un mensaje amable.
- */
+/** POST /api/auth/forgot-password → { email }. Responde siempre con éxito neutro. */
 export async function forgotPassword(email: string): Promise<void> {
   await apiClient.post('/auth/forgot-password', { email });
+}
+
+/**
+ * POST /api/auth/reset-password → body { token, newPassword }.
+ * El backend espera el campo `newPassword`; aquí exponemos `password` por claridad.
+ * Errores 400: "Token inválido o expirado" / "El token ha expirado".
+ */
+export async function resetPassword(
+  token: string,
+  password: string,
+): Promise<void> {
+  await apiClient.post('/auth/reset-password', { token, newPassword: password });
 }
