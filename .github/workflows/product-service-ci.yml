@@ -1,0 +1,72 @@
+name: product-service CI
+
+# Solo se dispara cuando cambia product-service (o este mismo workflow),
+# para no reconstruir el resto de microservicios del monorepo.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'product-service/**'
+      - '.github/workflows/product-service-ci.yml'
+  pull_request:
+    paths:
+      - 'product-service/**'
+      - '.github/workflows/product-service-ci.yml'
+
+# Todos los comandos se ejecutan dentro de product-service/.
+defaults:
+  run:
+    working-directory: product-service
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    # Base de datos efímera para las migraciones y los tests E2E.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: product_user
+          POSTGRES_PASSWORD: product_pass
+          POSTGRES_DB: product_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # El servicio postgres es accesible en localhost:5432 desde el runner.
+      DATABASE_URL: postgresql://product_user:product_pass@localhost:5432/product_db?schema=public
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: product-service/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npx eslint "{src,test}/**/*.ts"
+
+      - name: Build
+        run: npm run build
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: E2E tests
+        run: npm run test:e2e

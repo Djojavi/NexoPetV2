@@ -135,6 +135,30 @@ docker compose up --build
 
 ---
 
+## Tests
+
+Como es un microservicio **TCP** (no HTTP), no se prueba con Postman. La suite E2E
+([test/pets.e2e-spec.ts](test/pets.e2e-spec.ts)) arranca el microservicio real en un puerto de
+prueba (con el mismo `ValidationPipe` y filtro RPC que producción) y le habla con un
+`ClientProxy`, cubriendo los 11 patrones y todas las reglas de autorización.
+
+```bash
+docker compose up -d product-db          # BD de pruebas
+npx prisma migrate deploy                 # aplica migraciones
+npm run test:e2e                          # 22 casos
+```
+
+Requiere `DATABASE_URL` apuntando a una BD con las migraciones aplicadas.
+
+## CI (GitHub Actions)
+
+El workflow [`.github/workflows/product-service-ci.yml`](../.github/workflows/product-service-ci.yml)
+(en la raíz del repo) se dispara **solo** cuando cambia `product-service/**`, gracias a un filtro
+`paths`. En cada push/PR levanta un Postgres efímero y corre: `npm ci` → `prisma generate` →
+`lint` → `build` → `migrate deploy` → `test:e2e`.
+
+---
+
 ## Integración con el API Gateway (pendiente, otra tarea)
 
 Este entregable es **solo el microservicio**. Para exponerlo, quien administre el
