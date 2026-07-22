@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { JwtStrategy } from './auth/jwt.strategy';
 import { PetsController } from './pets/pets.controller';
+import { UsersController } from './users/users.controller';
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { PetsController } from './pets/pets.controller';
       },
     ]),
   ],
-  controllers: [AppController, PetsController],
+  controllers: [AppController, PetsController, UsersController],
   providers: [AppService, JwtStrategy],
 })
 export class AppModule {}
