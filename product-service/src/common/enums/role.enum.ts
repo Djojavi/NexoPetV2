@@ -1,8 +1,13 @@
-// Roles del sistema NexoPet. Coinciden con el `enum Role` del dominio
-// (descripcion_proyecto.md). El rol llega dentro del `actor` de cada mensaje,
+// Roles del sistema NexoPet. El rol llega dentro del `actor` de cada mensaje,
 // inyectado por el API Gateway tras validar el JWT.
+//
+// - USER  = cliente (dueño de mascotas).
+// - ADMIN = veterinario / personal de la clínica.
+//
+// A nivel de este servicio solo existen estos dos niveles de permiso: el cliente
+// gestiona sus propias mascotas y el veterinario (ADMIN) gestiona todas y el
+// historial clínico.
 export enum Role {
-  CLIENT = 'CLIENT',
-  VET = 'VET',
+  USER = 'USER',
   ADMIN = 'ADMIN',
 }

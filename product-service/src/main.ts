@@ -19,7 +19,7 @@ async function bootstrap() {
 
   // Validación global (requisito del README: pesos > 0, nombres no vacíos, etc.).
   // `transform` instancia los DTOs anidados (@Type); `whitelist` descarta campos
-  // no declarados (p. ej. un CLIENT que intente colar `ownerId`).
+  // no declarados (p. ej. un USER/cliente que intente colar `ownerId`).
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

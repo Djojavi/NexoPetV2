@@ -48,7 +48,7 @@ export class UpdatePetDto {
   @IsString()
   notes?: string;
 
-  // Reasignación de dueño: solo VET/ADMIN (se descarta para CLIENT en el servicio).
+  // Reasignación de dueño: solo ADMIN (se descarta para USER/cliente en el servicio).
   @IsOptional()
   @IsString()
   @IsNotEmpty()

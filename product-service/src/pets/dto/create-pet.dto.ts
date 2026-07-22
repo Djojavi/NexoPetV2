@@ -44,8 +44,8 @@ export class CreatePetDto {
   @IsString()
   notes?: string;
 
-  // Solo lo usan VET/ADMIN al crear la mascota de un cliente. Para un CLIENT se
-  // ignora (el dueño siempre es él mismo). La regla se aplica en el servicio.
+  // Solo lo usa el ADMIN (veterinario) al crear la mascota de un cliente. Para un
+  // USER (cliente) se ignora (el dueño siempre es él mismo). Regla en el servicio.
   @IsOptional()
   @IsString()
   @IsNotEmpty()

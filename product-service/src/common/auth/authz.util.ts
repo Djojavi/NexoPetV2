@@ -2,9 +2,9 @@ import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { ActorDto } from '../dto/actor.dto';
 import { Role } from '../enums/role.enum';
 
-/** VET y ADMIN son "personal médico" y comparten permisos a nivel de este servicio. */
+/** ADMIN es el "personal médico" (veterinario): puede gestionar cualquier mascota. */
 export function isStaff(role: Role): boolean {
-  return role === Role.VET || role === Role.ADMIN;
+  return role === Role.ADMIN;
 }
 
 /**
@@ -17,7 +17,7 @@ export function assertActor(actor?: ActorDto): asserts actor is ActorDto {
   }
 }
 
-/** Solo VET/ADMIN pueden ejecutar la acción (crear historial clínico, borrar, etc.). */
+/** Solo ADMIN puede ejecutar la acción (crear historial clínico, borrar, etc.). */
 export function assertStaff(
   actor: ActorDto,
   message = 'Acceso denegado',
@@ -28,11 +28,11 @@ export function assertStaff(
 }
 
 /**
- * Un CLIENT solo puede acceder a recursos de mascotas de las que es dueño.
- * VET/ADMIN pueden acceder a cualquiera.
+ * Un USER (cliente) solo puede acceder a recursos de mascotas de las que es dueño.
+ * ADMIN (veterinario) puede acceder a cualquiera.
  */
 export function assertOwnerOrStaff(actor: ActorDto, ownerId: string): void {
-  if (actor.role === Role.CLIENT && ownerId !== actor.userId) {
+  if (actor.role === Role.USER && ownerId !== actor.userId) {
     throw new ForbiddenException('Acceso denegado');
   }
 }

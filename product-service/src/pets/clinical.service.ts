@@ -12,13 +12,13 @@ import { CreateSurgeryDto } from './dto/create-surgery.dto';
 import { CreateDiagnosisDto } from './dto/create-diagnosis.dto';
 
 const STAFF_ONLY_MESSAGE =
-  'Acceso denegado. Solo el personal médico puede añadir historial clínico.';
+  'Acceso denegado. Solo el veterinario puede añadir historial clínico.';
 
 /**
  * Historial clínico (vacunas, cirugías, diagnósticos). Todos son hijos de Pet.
  * Autorización:
- * - Crear: solo VET/ADMIN.
- * - Listar: VET/ADMIN cualquiera; CLIENT solo si es dueño de la mascota.
+ * - Crear: solo ADMIN (veterinario).
+ * - Listar: ADMIN cualquiera; USER (cliente) solo si es dueño de la mascota.
  */
 @Injectable()
 export class ClinicalService {
@@ -106,7 +106,7 @@ export class ClinicalService {
 
   // ----- Helpers de autorización -----
 
-  /** Solo VET/ADMIN escriben, y la mascota debe existir. */
+  /** Solo ADMIN (veterinario) escribe, y la mascota debe existir. */
   private async assertStaffCanWrite(
     actor: ActorDto,
     petId: string,
@@ -116,7 +116,7 @@ export class ClinicalService {
     await this.getPetOrFail(petId);
   }
 
-  /** VET/ADMIN leen cualquiera; CLIENT solo si es dueño. */
+  /** ADMIN lee cualquiera; USER (cliente) solo si es dueño. */
   private async assertCanReadPet(
     actor: ActorDto,
     petId: string,

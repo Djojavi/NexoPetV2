@@ -28,10 +28,13 @@ Todo mensaje lleva un `actor` + los datos de la operación:
 
 ```jsonc
 {
-  "actor": { "userId": "uuid-del-usuario", "role": "CLIENT" | "VET" | "ADMIN" },
+  "actor": { "userId": "uuid-del-usuario", "role": "USER" | "ADMIN" },
   // ...campos propios de cada patrón (data, id, petId, search)
 }
 ```
+
+> **Roles:** `USER` = cliente (dueño de mascotas) · `ADMIN` = veterinario / personal de la clínica.
+> A nivel de este servicio solo existen estos dos niveles de permiso.
 
 ### Patrones de mensaje (`@MessagePattern`)
 
@@ -51,14 +54,14 @@ Todo mensaje lleva un `actor` + los datos de la operación:
 
 ### Reglas de autorización
 
-| Operación         | CLIENT                                  | VET / ADMIN                          |
+| Operación         | USER (cliente)                          | ADMIN (veterinario)                  |
 | ----------------- | --------------------------------------- | ------------------------------------ |
 | `findAll`         | solo sus mascotas                       | todas + `search` por nombre/especie  |
 | `findOne`         | solo si es dueño (si no, 403)           | cualquiera                           |
 | `create`          | dueño = él mismo (`ownerId` ignorado)   | requiere `ownerId` (si falta, 400)   |
 | `update`          | solo si es dueño; no reasigna dueño     | cualquiera; puede reasignar dueño    |
 | `remove`          | 403                                     | permitido                            |
-| clínico `create`  | 403 (solo personal médico)             | permitido (mascota inexistente → 404)|
+| clínico `create`  | 403 (solo el veterinario)               | permitido (mascota inexistente → 404)|
 | clínico `findAll` | solo si es dueño de la mascota          | cualquiera                           |
 
 Los errores se emiten como excepciones Nest (`BadRequestException`, `NotFoundException`,
@@ -93,7 +96,7 @@ Implementadas con `class-validator` + `ValidationPipe` global (`whitelist + tran
 - **Peso** > 0 cuando se envía (`@IsPositive`): se rechazan 0 y negativos.
 - **Especie / sexo** deben pertenecer al enum (`@IsEnum`).
 - **Fechas** en formato ISO (`@IsDateString`), convertidas a `Date` al persistir.
-- `whitelist` descarta campos no declarados (evita, p. ej., que un CLIENT cuele `ownerId`).
+- `whitelist` descarta campos no declarados (evita, p. ej., que un USER/cliente cuele `ownerId`).
 
 ---
 
@@ -191,9 +194,10 @@ Este entregable es **solo el microservicio**. Para exponerlo, quien administre e
 
 3. **Dependencia con Auth (fuera de alcance de este servicio):** hoy el JWT solo contiene
    `{ sub, email }` y el modelo `User` de auth-service **no tiene `role`**. Para que las reglas
-   por rol (CLIENT/VET/ADMIN) funcionen de verdad, auth-service debe añadir `User.role` e
+   por rol (`USER` / `ADMIN`) funcionen de verdad, auth-service debe añadir `User.role` e
    incluirlo en el token; entonces el gateway podrá poblar `actor.role`. Hasta ese momento el
-   contrato ya está listo: solo falta que el `role` llegue con un valor real.
+   contrato ya está listo: solo falta que el `role` llegue con un valor real. Como este servicio
+   solo distingue cliente (`USER`) de veterinario (`ADMIN`), el mapeo desde el JWT es 1:1.
 
 ---
 
