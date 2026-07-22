@@ -8,20 +8,19 @@ import { Alert } from '../components/ui/Alert';
 import { forgotPassword } from '../api/auth.api';
 import { validateEmail } from '../lib/validators';
 
-type Feedback =
-  | { type: 'success'; message: string }
-  | { type: 'info'; message: string }
-  | null;
+// Mensaje neutro mostrado siempre tras el intento (exista o no el backend).
+const SUCCESS_MESSAGE =
+  'Si el correo está registrado, recibirás instrucciones para restablecer tu contraseña.';
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | undefined>();
-  const [feedback, setFeedback] = useState<Feedback>(null);
+  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    setFeedback(null);
+    setSubmitted(false);
     const emailError = validateEmail(email);
     setError(emailError);
     if (emailError) return;
@@ -29,20 +28,12 @@ export function ForgotPasswordPage() {
     setLoading(true);
     try {
       await forgotPassword(email.trim());
-      // Si el backend llegara a responder 200, confirmamos el envío.
-      setFeedback({
-        type: 'success',
-        message:
-          'Si el correo existe, te enviamos instrucciones para restablecer tu contraseña.',
-      });
     } catch {
-      // El endpoint aún no existe: mensaje amable, sin exponer detalles técnicos.
-      setFeedback({
-        type: 'info',
-        message:
-          'El servicio de recuperación de contraseña estará disponible próximamente.',
-      });
+      // Ignoramos el resultado a propósito.
     } finally {
+      // Práctica de seguridad estándar: nunca revelar si el correo existe, así
+      // que mostramos el mismo mensaje de éxito responda 200, 404 o falle la red.
+      setSubmitted(true);
       setLoading(false);
     }
   }
@@ -64,8 +55,8 @@ export function ForgotPasswordPage() {
       }
     >
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
-        {feedback ? (
-          <Alert variant={feedback.type}>{feedback.message}</Alert>
+        {submitted ? (
+          <Alert variant="success">{SUCCESS_MESSAGE}</Alert>
         ) : null}
 
         <Input
