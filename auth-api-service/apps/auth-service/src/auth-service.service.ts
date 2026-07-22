@@ -51,7 +51,12 @@ export class AuthServiceService {
     }
 
     // Generamos el payload para el JWT (incluimos el rol para que los demás servicios lo puedan leer)
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+    };
     
     // Retornamos el token firmado
     return {
