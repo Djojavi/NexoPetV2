@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { GuestRoute, ProtectedRoute } from './components/layout/ProtectedRoute';
+import { AppLayout } from './components/layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
@@ -47,31 +48,18 @@ function App() {
           }
         />
 
-        {/* Protegidas */}
+        {/* Protegidas: comparten AppLayout vía Outlet */}
         <Route
-          path="/dashboard"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <AppLayout />
             </ProtectedRoute>
           }
-        />
-        <Route
-          path="/pets"
-          element={
-            <ProtectedRoute>
-              <PetsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/chat"
-          element={
-            <ProtectedRoute>
-              <ChatPage />
-            </ProtectedRoute>
-          }
-        />
+        >
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/pets" element={<PetsPage />} />
+          <Route path="/chat" element={<ChatPage />} />
+        </Route>
 
         {/* 404 */}
         <Route path="*" element={<NotFoundPage />} />
