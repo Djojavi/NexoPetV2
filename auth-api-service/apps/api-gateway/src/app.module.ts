@@ -4,9 +4,11 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { JwtStrategy } from './auth/jwt.strategy';
 import { PetsController } from './pets/pets.controller';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
+    MetricsModule,
     ClientsModule.register([
       {
         name: 'AUTH_SERVICE', // Un "apodo" para inyectarlo después
