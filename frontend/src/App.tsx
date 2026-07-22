@@ -1,24 +1,83 @@
-function App() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-muted px-6 text-center">
-      <div className="flex flex-col items-center gap-6 rounded-2xl bg-surface px-12 py-14 shadow-[var(--shadow-card)]">
-        <span
-          className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-600 text-3xl shadow-[var(--shadow-lifted)]"
-          aria-hidden="true"
-        >
-          🐾
-        </span>
-        <div className="space-y-2">
-          <h1 className="text-5xl font-bold tracking-tight text-primary-700">
-            NexoPet
-          </h1>
-          <p className="text-neutral-500">
-            Clínica veterinaria · historial clínico de mascotas
-          </p>
-        </div>
-      </div>
-    </main>
-  )
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
+import { GuestRoute, ProtectedRoute } from './components/layout/ProtectedRoute';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { PetsPage } from './pages/PetsPage';
+import { ChatPage } from './pages/ChatPage';
+import { NotFoundPage } from './pages/NotFoundPage';
+
+/** '/' redirige según haya o no sesión. */
+function RootRedirect() {
+  const { isAuthenticated } = useAuth();
+  return <Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />;
 }
 
-export default App
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<RootRedirect />} />
+
+        {/* Públicas (solo invitados) */}
+        <Route
+          path="/login"
+          element={
+            <GuestRoute>
+              <LoginPage />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <GuestRoute>
+              <RegisterPage />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <GuestRoute>
+              <ForgotPasswordPage />
+            </GuestRoute>
+          }
+        />
+
+        {/* Protegidas */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pets"
+          element={
+            <ProtectedRoute>
+              <PetsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 404 */}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
