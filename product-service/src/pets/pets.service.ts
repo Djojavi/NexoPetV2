@@ -75,20 +75,19 @@ export class PetsService {
    */
   async create(actor: ActorDto, dto: CreatePetDto): Promise<Pet> {
     assertActor(actor);
+    // Regla de negocio: solo el veterinario (ADMIN) registra mascotas. El cliente
+    // (USER) solo consulta las suyas.
+    assertStaff(
+      actor,
+      'Acceso denegado. Solo el veterinario puede registrar mascotas.',
+    );
 
-    // Toda mascota debe quedar asociada a un cliente (ownerId). El ADMIN
-    // (veterinario) debe indicar a qué cliente pertenece; el USER (cliente) es
-    // siempre su propio dueño (se ignora cualquier ownerId que intente enviar).
-    let ownerId: string;
-    if (isStaff(actor.role)) {
-      if (!dto.ownerId) {
-        throw new BadRequestException(
-          'Debe asociar la mascota a un cliente (ownerId es obligatorio para el veterinario)',
-        );
-      }
-      ownerId = dto.ownerId;
-    } else {
-      ownerId = actor.userId;
+    // Toda mascota debe quedar asociada a un cliente: el veterinario indica a qué
+    // cliente pertenece.
+    if (!dto.ownerId) {
+      throw new BadRequestException(
+        'Debe asociar la mascota a un cliente (ownerId es obligatorio)',
+      );
     }
 
     return this.prisma.pet.create({
@@ -101,24 +100,26 @@ export class PetsService {
         weight: dto.weight,
         photoUrl: dto.photoUrl,
         notes: dto.notes,
-        ownerId,
+        ownerId: dto.ownerId,
       },
     });
   }
 
   /**
-   * Editar mascota.
-   * - USER (cliente): solo si es dueño, y NO puede reasignar el dueño (se descarta `ownerId`).
-   * - ADMIN (veterinario): cualquier mascota, y puede reasignar el dueño.
+   * Editar mascota. Solo el veterinario (ADMIN); el cliente (USER) solo consulta.
+   * El ADMIN puede además reasignar el dueño enviando `ownerId`.
    */
   async update(actor: ActorDto, id: string, dto: UpdatePetDto): Promise<Pet> {
     assertActor(actor);
+    assertStaff(
+      actor,
+      'Acceso denegado. Solo el veterinario puede editar mascotas.',
+    );
 
     const pet = await this.prisma.pet.findUnique({ where: { id } });
     if (!pet) {
       throw new NotFoundException('Mascota no encontrada');
     }
-    assertOwnerOrStaff(actor, pet.ownerId);
 
     const data: Prisma.PetUpdateInput = {
       name: dto.name,
@@ -145,6 +146,34 @@ export class PetsService {
     }
 
     return this.prisma.pet.update({ where: { id }, data });
+  }
+
+  /**
+   * Reasignar el dueño de una mascota a otro cliente. Solo el veterinario (ADMIN).
+   * El `ownerId` debe ser el id de un cliente válido (lo garantiza el frontend, que
+   * lo elige de la lista de clientes que expone auth-service).
+   */
+  async reassignOwner(
+    actor: ActorDto,
+    id: string,
+    ownerId: string,
+  ): Promise<Pet> {
+    assertActor(actor);
+    assertStaff(
+      actor,
+      'Acceso denegado. Solo el veterinario puede reasignar el dueño de una mascota.',
+    );
+
+    if (!ownerId) {
+      throw new BadRequestException('Debe indicar el nuevo dueño (ownerId).');
+    }
+
+    const pet = await this.prisma.pet.findUnique({ where: { id } });
+    if (!pet) {
+      throw new NotFoundException('Mascota no encontrada');
+    }
+
+    return this.prisma.pet.update({ where: { id }, data: { ownerId } });
   }
 
   /** Eliminar mascota. Solo ADMIN/veterinario (el historial clínico cae en cascada). */

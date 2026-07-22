@@ -3,6 +3,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   ValidateNested,
 } from 'class-validator';
 import { ActorDto } from '../../../common/dto/actor.dto';
@@ -67,4 +68,17 @@ export class PetRemoveRequest {
   @IsString()
   @IsNotEmpty()
   id: string;
+}
+
+export class PetReassignOwnerRequest {
+  @ValidateNested()
+  @Type(() => ActorDto)
+  actor: ActorDto;
+
+  @IsString()
+  @IsNotEmpty()
+  id: string;
+
+  @IsUUID('all', { message: 'ownerId debe ser el UUID de un cliente válido' })
+  ownerId: string;
 }

@@ -6,6 +6,7 @@ import {
   PetCreateRequest,
   PetFindAllRequest,
   PetFindOneRequest,
+  PetReassignOwnerRequest,
   PetRemoveRequest,
   PetUpdateRequest,
 } from './dto/requests/pet.requests';
@@ -52,6 +53,15 @@ export class PetsController {
   @MessagePattern('pet.remove')
   remove(@Payload() payload: PetRemoveRequest) {
     return this.petsService.remove(payload.actor, payload.id);
+  }
+
+  @MessagePattern('pet.reassignOwner')
+  reassignOwner(@Payload() payload: PetReassignOwnerRequest) {
+    return this.petsService.reassignOwner(
+      payload.actor,
+      payload.id,
+      payload.ownerId,
+    );
   }
 
   // ----- Vacunas -----
