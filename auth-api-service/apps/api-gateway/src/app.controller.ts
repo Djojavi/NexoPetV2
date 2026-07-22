@@ -1,6 +1,14 @@
 import { Controller, Post, Body, Inject } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
+import { ApiTags } from '@nestjs/swagger';
+import {
+  ForgotPasswordDto,
+  LoginDto,
+  RegisterDto,
+  ResetPasswordDto,
+} from './auth/dto/auth.dto';
 
+@ApiTags('Auth')
 @Controller('auth') // Todas las rutas empezarán con /auth
 export class AppController {
   constructor(
@@ -8,24 +16,24 @@ export class AppController {
   ) {}
 
   @Post('register')
-  register(@Body() body: any) {
+  register(@Body() body: RegisterDto) {
     // Enviamos el mensaje 'auth.register' por TCP al microservicio
     return this.authClient.send('auth.register', body);
   }
 
   @Post('login')
-  login(@Body() body: any) {
+  login(@Body() body: LoginDto) {
     // Enviamos el mensaje 'auth.login' por TCP al microservicio
     return this.authClient.send('auth.login', body);
   }
 
   @Post('forgot-password')
-  forgotPassword(@Body() body: { email: string }) {
+  forgotPassword(@Body() body: ForgotPasswordDto) {
     return this.authClient.send('auth.forgot-password', body);
   }
 
   @Post('reset-password')
-  resetPassword(@Body() body: { token: string; newPassword: string }) {
+  resetPassword(@Body() body: ResetPasswordDto) {
     return this.authClient.send('auth.reset-password', body);
   }
 }
