@@ -1,6 +1,6 @@
-# NexoPet — Descripción del Proyecto
+# NexoPet — Descripción del Proyecto (Arquitectura anterior)
 
-Documento de contexto general del proyecto: qué es, qué hace, cómo está construido y con qué tecnologías. Sirve como punto de entrada para entender el sistema sin necesidad de leer el código.
+Advetencia: Esta documentación es una descripción de cómo estaba conformado el proyecto anteriormente de forma monolítica. Solo es una guía sobre el contexto de aplicativo y giro del negocio, ya que actualmente su funcionamiento está basado en microservicios. Solo tomar como referencia para conocer lo que hacía antes.
 
 ---
 
