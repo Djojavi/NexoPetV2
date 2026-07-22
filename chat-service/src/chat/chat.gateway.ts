@@ -40,7 +40,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         secret: process.env.JWT_SECRET || 'super_secret_key_2026',
       });
 
-      const displayName = payload.email?.split('@')[0] ?? 'Usuario';
+      const displayName = payload.name ?? payload.email?.split('@')[0] ?? 'Usuario';
 
       this.chatService.addUser(client.id, {
         id: payload.sub,
