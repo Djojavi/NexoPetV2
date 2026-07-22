@@ -42,6 +42,18 @@ export async function deletePet(id: string): Promise<void> {
   await apiClient.delete(`/pets/${id}`);
 }
 
+/**
+ * Reasigna el dueño de una mascota a otro cliente (solo ADMIN).
+ * PATCH /api/pets/:id/owner con body { ownerId }.
+ */
+export async function reassignOwner(
+  petId: string,
+  ownerId: string,
+): Promise<Pet> {
+  const res = await apiClient.patch<Pet>(`/pets/${petId}/owner`, { ownerId });
+  return res.data;
+}
+
 // ----- Vacunas -----
 
 export async function getVaccines(petId: string): Promise<Vaccine[]> {

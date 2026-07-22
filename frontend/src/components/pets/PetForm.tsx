@@ -6,6 +6,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
 import { Button } from '../ui/Button';
+import { OwnerSelect } from './OwnerSelect';
 
 const SPECIES_OPTIONS = (Object.keys(SPECIES_LABELS) as Species[]).map(
   (value) => ({ value, label: SPECIES_LABELS[value] }),
@@ -18,6 +19,19 @@ const SEX_OPTIONS = (Object.keys(SEX_LABELS) as Sex[]).map((value) => ({
 const BREED_MAX = 100;
 const NOTES_MAX = 500;
 
+/**
+ * Fecha local de HOY en formato `YYYY-MM-DD`. Se construye a partir de los
+ * componentes locales (no de `toISOString`, que usa UTC y puede adelantar/atrasar
+ * un día). Sirve tanto para comparar como para el atributo `max` del input date.
+ */
+function todayISODate(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 interface FormState {
   name: string;
   species: string;
@@ -26,6 +40,7 @@ interface FormState {
   birthDate: string;
   weight: string;
   notes: string;
+  ownerId: string;
 }
 
 interface FormErrors {
@@ -36,6 +51,7 @@ interface FormErrors {
   birthDate?: string;
   weight?: string;
   notes?: string;
+  ownerId?: string;
 }
 
 function initialState(pet?: Pet): FormState {
@@ -48,11 +64,16 @@ function initialState(pet?: Pet): FormState {
     birthDate: pet?.birthDate ? pet.birthDate.slice(0, 10) : '',
     weight: pet?.weight != null ? String(pet.weight) : '',
     notes: pet?.notes ?? '',
+    ownerId: '',
   };
 }
 
-function validate(state: FormState): FormErrors {
+/** `requireOwner` = crear como ADMIN: el dueño (ownerId) es obligatorio. */
+function validate(state: FormState, requireOwner: boolean): FormErrors {
   const errors: FormErrors = {};
+
+  if (requireOwner && !state.ownerId)
+    errors.ownerId = 'Selecciona el dueño de la mascota';
 
   const name = state.name.trim();
   if (!name) errors.name = 'El nombre es obligatorio';
@@ -74,20 +95,19 @@ function validate(state: FormState): FormErrors {
       errors.weight = 'El peso debe ser mayor a 0';
   }
 
-  if (state.birthDate) {
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    if (new Date(state.birthDate) > today)
-      errors.birthDate = 'La fecha de nacimiento no puede ser futura';
-  }
+  // El input date entrega `YYYY-MM-DD`; comparar como texto es cronológicamente
+  // correcto y evita los desfases de zona horaria de construir un `Date`.
+  if (state.birthDate && state.birthDate > todayISODate())
+    errors.birthDate = 'La fecha de nacimiento no puede ser futura';
 
   return errors;
 }
 
 /**
- * Payload de CREAR: omite los opcionales vacíos y nunca envía ownerId.
+ * Payload de CREAR: omite los opcionales vacíos. Incluye `ownerId` cuando el
+ * veterinario (ADMIN) eligió el dueño (`withOwner`).
  */
-function toCreatePayload(state: FormState): PetInput {
+function toCreatePayload(state: FormState, withOwner: boolean): PetInput {
   const payload: PetInput = {
     name: state.name.trim(),
     species: state.species as Species,
@@ -104,6 +124,8 @@ function toCreatePayload(state: FormState): PetInput {
 
   if (state.birthDate)
     payload.birthDate = new Date(state.birthDate).toISOString();
+
+  if (withOwner && state.ownerId) payload.ownerId = state.ownerId;
 
   return payload;
 }
@@ -143,34 +165,55 @@ function toUpdatePayload(state: FormState, pet: Pet): PetUpdateInput {
 
 interface PetFormProps {
   pet?: Pet;
+  /** Muestra el selector de dueño al CREAR (solo el veterinario/ADMIN). */
+  withOwner?: boolean;
   submitting: boolean;
   onSubmit: (data: PetInput | PetUpdateInput) => void;
   onCancel: () => void;
 }
 
-export function PetForm({ pet, submitting, onSubmit, onCancel }: PetFormProps) {
+export function PetForm({
+  pet,
+  withOwner = false,
+  submitting,
+  onSubmit,
+  onCancel,
+}: PetFormProps) {
   const [state, setState] = useState<FormState>(() => initialState(pet));
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // El selector de dueño solo aplica al CREAR (en edición se usa "Cambiar dueño").
+  const askOwner = withOwner && !pet;
 
   function update<K extends keyof FormState>(field: K, value: string) {
     setState((prev) => ({ ...prev, [field]: value }));
   }
 
   function handleBlur() {
-    setErrors(validate(state));
+    setErrors(validate(state, askOwner));
   }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    const validation = validate(state);
+    const validation = validate(state, askOwner);
     setErrors(validation);
     if (Object.keys(validation).length > 0) return;
     // Crear omite vacíos; editar puede enviar null para limpiar campos ya guardados.
-    onSubmit(pet ? toUpdatePayload(state, pet) : toCreatePayload(state));
+    onSubmit(
+      pet ? toUpdatePayload(state, pet) : toCreatePayload(state, askOwner),
+    );
   }
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      {askOwner ? (
+        <OwnerSelect
+          value={state.ownerId}
+          onChange={(ownerId) => update('ownerId', ownerId)}
+          error={errors.ownerId}
+        />
+      ) : null}
+
       <Input
         label="Nombre"
         value={state.name}
@@ -215,6 +258,7 @@ export function PetForm({ pet, submitting, onSubmit, onCancel }: PetFormProps) {
           label="Fecha de nacimiento (opcional)"
           type="date"
           value={state.birthDate}
+          max={todayISODate()}
           onChange={(e) => update('birthDate', e.target.value)}
           onBlur={handleBlur}
           error={errors.birthDate}

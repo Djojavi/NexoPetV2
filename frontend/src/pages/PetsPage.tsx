@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Pet, PetInput, PetUpdateInput } from '../types';
 import { getSpeciesLabel, getSexLabel } from '../types';
 import {
@@ -6,23 +6,43 @@ import {
   createPet,
   updatePet,
   deletePet,
+  reassignOwner,
 } from '../api/pets.api';
 import { getErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useClients } from '../lib/useClients';
 import { useToast } from '../components/ui/Toast';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { PetForm } from '../components/pets/PetForm';
+import { PetDetail } from '../components/pets/PetDetail';
+import { OwnerSelect } from '../components/pets/OwnerSelect';
 
 type ListState = 'loading' | 'ready' | 'error';
 
 export function PetsPage() {
   const toast = useToast();
-  // El borrado es solo-ADMIN en el backend (assertStaff en pet.remove); ocultamos
-  // el botón para no-admins. No es seguridad (vive en el backend), es UX.
+  // Regla de negocio: el CLIENTE (rol USER) solo VE sus mascotas; el VETERINARIO
+  // (rol ADMIN) gestiona todo (crear/editar/eliminar/reasignar). Por eso las acciones
+  // de gestión se muestran solo a ADMIN y el cliente dispone de una vista de detalle
+  // de solo lectura. Esto es UX coherente con los permisos: la seguridad real la
+  // aplica el backend.
   const { isAdmin } = useAuth();
+
+  // Lista de clientes: solo el veterinario (ADMIN) puede consultarla. Sirve para
+  // el selector de dueño (crear/reasignar) y para mostrar el nombre del dueño.
+  const { clients } = useClients(isAdmin);
+  const ownerNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of clients) map.set(c.id, c.name);
+    return map;
+  }, [clients]);
+  const getOwnerName = useCallback(
+    (ownerId: string) => ownerNameById.get(ownerId) ?? '—',
+    [ownerNameById],
+  );
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 400);
@@ -42,6 +62,40 @@ export function PetsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<Pet | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Mascota abierta en modo solo-lectura (detalle). null => panel cerrado.
+  const [detailPet, setDetailPet] = useState<Pet | null>(null);
+
+  // Reasignación de dueño (solo ADMIN). null => modal cerrado.
+  const [reassignPet, setReassignPet] = useState<Pet | null>(null);
+  const [reassignOwnerId, setReassignOwnerId] = useState('');
+  const [reassignError, setReassignError] = useState<string | undefined>();
+  const [reassigning, setReassigning] = useState(false);
+
+  function openReassign(pet: Pet) {
+    setReassignOwnerId(pet.ownerId);
+    setReassignError(undefined);
+    setReassignPet(pet);
+  }
+
+  async function handleReassign() {
+    if (!reassignPet) return;
+    if (!reassignOwnerId) {
+      setReassignError('Selecciona el nuevo dueño');
+      return;
+    }
+    setReassigning(true);
+    try {
+      await reassignOwner(reassignPet.id, reassignOwnerId);
+      toast.success('Dueño actualizado');
+      setReassignPet(null);
+      await loadPets(debouncedSearch);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setReassigning(false);
+    }
+  }
 
   const loadPets = useCallback(async (query: string) => {
     const requestId = (requestIdRef.current += 1);
@@ -121,12 +175,16 @@ export function PetsPage() {
         <div>
           <h2 className="text-2xl font-semibold text-neutral-800">Mascotas</h2>
           <p className="mt-1 text-sm text-neutral-500">
-            Gestiona las mascotas y su información básica.
+            {isAdmin
+              ? 'Gestiona las mascotas y su información básica.'
+              : 'Consulta la información de tus mascotas.'}
           </p>
         </div>
-        <Button onClick={() => setFormPet(null)}>
-          <span aria-hidden="true">＋</span> Agregar mascota
-        </Button>
+        {isAdmin ? (
+          <Button onClick={() => setFormPet(null)}>
+            <span aria-hidden="true">＋</span> Agregar mascota
+          </Button>
+        ) : null}
       </div>
 
       {/* Buscador */}
@@ -188,14 +246,18 @@ export function PetsPage() {
           ) : pets.length === 0 ? (
             <EmptyState
               onAdd={() => setFormPet(null)}
+              canAdd={isAdmin}
               hasSearch={Boolean(search)}
             />
           ) : (
             <PetsList
               pets={pets}
-              canDelete={isAdmin}
+              canManage={isAdmin}
+              getOwnerName={getOwnerName}
+              onView={(pet) => setDetailPet(pet)}
               onEdit={(pet) => setFormPet(pet)}
               onDelete={(pet) => setDeleteTarget(pet)}
+              onReassign={openReassign}
             />
           )}
         </div>
@@ -209,6 +271,7 @@ export function PetsPage() {
       >
         <PetForm
           pet={formPet ?? undefined}
+          withOwner={isAdmin}
           submitting={submitting}
           onSubmit={handleSubmit}
           onCancel={() => setFormPet(undefined)}
@@ -229,6 +292,57 @@ export function PetsPage() {
           </>
         }
       />
+
+      {/* Detalle en solo lectura (principal para el cliente; consulta rápida para el admin) */}
+      <Modal
+        open={detailPet !== null}
+        onClose={() => setDetailPet(null)}
+        title={detailPet ? detailPet.name : 'Detalle de la mascota'}
+      >
+        {detailPet ? (
+          <PetDetail
+            pet={detailPet}
+            ownerName={isAdmin ? getOwnerName(detailPet.ownerId) : undefined}
+            onClose={() => setDetailPet(null)}
+          />
+        ) : null}
+      </Modal>
+
+      {/* Reasignar dueño (solo ADMIN) */}
+      <Modal
+        open={reassignPet !== null}
+        onClose={() => (reassigning ? undefined : setReassignPet(null))}
+        title="Cambiar dueño"
+      >
+        {reassignPet ? (
+          <div className="space-y-4">
+            <p className="text-sm text-neutral-600">
+              Reasigna a <strong>{reassignPet.name}</strong> a otro cliente.
+            </p>
+            <OwnerSelect
+              value={reassignOwnerId}
+              onChange={(ownerId) => {
+                setReassignOwnerId(ownerId);
+                setReassignError(undefined);
+              }}
+              error={reassignError}
+              label="Nuevo dueño"
+            />
+            <div className="flex justify-end gap-3 pt-1">
+              <Button
+                variant="ghost"
+                onClick={() => setReassignPet(null)}
+                disabled={reassigning}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleReassign} loading={reassigning}>
+                Guardar dueño
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 }
@@ -237,14 +351,20 @@ export function PetsPage() {
 
 function PetsList({
   pets,
-  canDelete,
+  canManage,
+  getOwnerName,
+  onView,
   onEdit,
   onDelete,
+  onReassign,
 }: {
   pets: Pet[];
-  canDelete: boolean;
+  canManage: boolean;
+  getOwnerName: (ownerId: string) => string;
+  onView: (pet: Pet) => void;
   onEdit: (pet: Pet) => void;
   onDelete: (pet: Pet) => void;
+  onReassign: (pet: Pet) => void;
 }) {
   return (
     <>
@@ -258,6 +378,9 @@ function PetsList({
               <th className="px-5 py-3 font-medium">Raza</th>
               <th className="px-5 py-3 font-medium">Sexo</th>
               <th className="px-5 py-3 font-medium">Peso</th>
+              {canManage ? (
+                <th className="px-5 py-3 font-medium">Dueño</th>
+              ) : null}
               <th className="px-5 py-3 text-right font-medium">Acciones</th>
             </tr>
           </thead>
@@ -279,24 +402,45 @@ function PetsList({
                 <td className="px-5 py-3 text-neutral-600">
                   {pet.weight != null ? `${pet.weight} kg` : '—'}
                 </td>
+                {canManage ? (
+                  <td className="px-5 py-3 text-neutral-600">
+                    {getOwnerName(pet.ownerId)}
+                  </td>
+                ) : null}
                 <td className="px-5 py-3">
                   <div className="flex justify-end gap-2">
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => onEdit(pet)}
+                      onClick={() => onView(pet)}
                     >
-                      Editar
+                      Ver
                     </Button>
-                    {canDelete ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-danger hover:bg-red-50"
-                        onClick={() => onDelete(pet)}
-                      >
-                        Eliminar
-                      </Button>
+                    {canManage ? (
+                      <>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => onEdit(pet)}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => onReassign(pet)}
+                        >
+                          Cambiar dueño
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-danger hover:bg-red-50"
+                          onClick={() => onDelete(pet)}
+                        >
+                          Eliminar
+                        </Button>
+                      </>
                     ) : null}
                   </div>
                 </td>
@@ -329,25 +473,48 @@ function PetsList({
             <p className="mt-2 text-sm text-neutral-600">
               Raza: {pet.breed || '—'}
             </p>
-            <div className="mt-3 flex gap-2">
+            {canManage ? (
+              <p className="mt-1 text-sm text-neutral-600">
+                Dueño: {getOwnerName(pet.ownerId)}
+              </p>
+            ) : null}
+            <div className="mt-3 flex flex-wrap gap-2">
               <Button
                 variant="secondary"
                 size="sm"
                 fullWidth
-                onClick={() => onEdit(pet)}
+                onClick={() => onView(pet)}
               >
-                Editar
+                Ver
               </Button>
-              {canDelete ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  fullWidth
-                  className="text-danger hover:bg-red-50"
-                  onClick={() => onDelete(pet)}
-                >
-                  Eliminar
-                </Button>
+              {canManage ? (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    fullWidth
+                    onClick={() => onEdit(pet)}
+                  >
+                    Editar
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    fullWidth
+                    onClick={() => onReassign(pet)}
+                  >
+                    Cambiar dueño
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    fullWidth
+                    className="text-danger hover:bg-red-50"
+                    onClick={() => onDelete(pet)}
+                  >
+                    Eliminar
+                  </Button>
+                </>
               ) : null}
             </div>
           </div>
@@ -379,9 +546,11 @@ function PetsSkeleton() {
 
 function EmptyState({
   onAdd,
+  canAdd,
   hasSearch,
 }: {
   onAdd: () => void;
+  canAdd: boolean;
   hasSearch: boolean;
 }) {
   return (
@@ -402,13 +571,15 @@ function EmptyState({
         <p className="text-neutral-600">
           No se encontraron mascotas para esa búsqueda.
         </p>
-      ) : (
+      ) : canAdd ? (
         <>
           <p className="text-neutral-600">Aún no hay mascotas registradas.</p>
           <Button onClick={onAdd}>
             <span aria-hidden="true">＋</span> Agregar mascota
           </Button>
         </>
+      ) : (
+        <p className="text-neutral-600">Aún no tienes mascotas registradas.</p>
       )}
     </div>
   );
