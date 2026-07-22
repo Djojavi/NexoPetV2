@@ -1,0 +1,69 @@
+name: frontend CI
+
+# Solo se dispara cuando cambia el frontend (o este mismo workflow),
+# para no reconstruir el resto de microservicios del monorepo.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+
+# Todos los comandos se ejecutan dentro de frontend/.
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Node 22 para coincidir con la etapa de build del Dockerfile.
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # El proyecto usa oxlint a través del script "lint" del package.json
+      # (no eslint: no hay dependencia ni configuración de eslint).
+      - name: Lint
+        run: npm run lint
+
+      # Puerta de calidad principal: type-check (tsc -b) + build de Vite.
+      # No hay etapa de tests porque el frontend no tiene suite; la validación
+      # es type-check + build (y, en el job siguiente, la imagen Docker).
+      - name: Type-check and build
+        run: npm run build
+
+  docker:
+    # Valida el Dockerfile construyendo la imagen. No se hace push a ningún
+    # registry: el objetivo es demostrar integración continua, igual que el
+    # resto del pipeline del proyecto.
+    needs: build
+    runs-on: ubuntu-latest
+
+    # Este job trabaja desde la raíz del repo (no dentro de frontend/), porque
+    # el contexto de build se pasa explícitamente como ./frontend.
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t nexopet-frontend:ci ./frontend
