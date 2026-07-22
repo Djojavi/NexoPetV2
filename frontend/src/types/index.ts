@@ -105,7 +105,14 @@ export interface PetInput {
   ownerId?: string;
 }
 
-export type PetUpdateInput = Partial<PetInput>;
+/**
+ * Payload de edición: cada campo es opcional y, además, admite `null` explícito
+ * para VACIAR en la base un opcional que antes tenía valor (Prisma trata `undefined`
+ * como "sin cambios" y `null` como "borrar").
+ */
+export type PetUpdateInput = {
+  [K in keyof PetInput]?: PetInput[K] | null;
+};
 
 export interface VaccineInput {
   name: string;

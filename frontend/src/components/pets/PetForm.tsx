@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import type { Pet, PetInput, Species, Sex } from '../../types';
+import type { Pet, PetInput, PetUpdateInput, Species, Sex } from '../../types';
 import { SPECIES_LABELS, SEX_LABELS } from '../../types';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -84,8 +84,10 @@ function validate(state: FormState): FormErrors {
   return errors;
 }
 
-/** Construye el payload limpio: omite opcionales vacíos y nunca envía ownerId. */
-function toPayload(state: FormState): PetInput {
+/**
+ * Payload de CREAR: omite los opcionales vacíos y nunca envía ownerId.
+ */
+function toCreatePayload(state: FormState): PetInput {
   const payload: PetInput = {
     name: state.name.trim(),
     species: state.species as Species,
@@ -106,10 +108,43 @@ function toPayload(state: FormState): PetInput {
   return payload;
 }
 
+/**
+ * Payload de EDITAR. Para cada opcional:
+ * - Si tiene contenido → se envía normal (birthDate a ISO, weight numérico).
+ * - Si quedó vacío pero ANTES tenía valor → se envía `null` para vaciarlo en la base.
+ * - Si nunca tuvo valor y sigue vacío → se omite (Prisma no lo toca).
+ * Nunca se envía ownerId. photoUrl no se toca: el formulario no lo edita.
+ */
+function toUpdatePayload(state: FormState, pet: Pet): PetUpdateInput {
+  const payload: PetUpdateInput = {
+    name: state.name.trim(),
+    species: state.species as Species,
+    sex: state.sex as Sex,
+  };
+
+  const breed = state.breed.trim();
+  if (breed) payload.breed = breed;
+  else if (pet.breed) payload.breed = null;
+
+  const notes = state.notes.trim();
+  if (notes) payload.notes = notes;
+  else if (pet.notes) payload.notes = null;
+
+  const weight = state.weight.trim();
+  if (weight) payload.weight = Number(weight);
+  else if (pet.weight != null) payload.weight = null;
+
+  if (state.birthDate)
+    payload.birthDate = new Date(state.birthDate).toISOString();
+  else if (pet.birthDate) payload.birthDate = null;
+
+  return payload;
+}
+
 interface PetFormProps {
   pet?: Pet;
   submitting: boolean;
-  onSubmit: (data: PetInput) => void;
+  onSubmit: (data: PetInput | PetUpdateInput) => void;
   onCancel: () => void;
 }
 
@@ -130,7 +165,8 @@ export function PetForm({ pet, submitting, onSubmit, onCancel }: PetFormProps) {
     const validation = validate(state);
     setErrors(validation);
     if (Object.keys(validation).length > 0) return;
-    onSubmit(toPayload(state));
+    // Crear omite vacíos; editar puede enviar null para limpiar campos ya guardados.
+    onSubmit(pet ? toUpdatePayload(state, pet) : toCreatePayload(state));
   }
 
   return (

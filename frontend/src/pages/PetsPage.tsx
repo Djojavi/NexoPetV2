@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Pet, PetInput } from '../types';
+import type { Pet, PetInput, PetUpdateInput } from '../types';
 import { getSpeciesLabel, getSexLabel } from '../types';
 import {
   getPets,
@@ -8,6 +8,7 @@ import {
   deletePet,
 } from '../api/pets.api';
 import { getErrorMessage } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ui/Toast';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
 import { Button } from '../components/ui/Button';
@@ -19,6 +20,9 @@ type ListState = 'loading' | 'ready' | 'error';
 
 export function PetsPage() {
   const toast = useToast();
+  // El borrado es solo-ADMIN en el backend (assertStaff en pet.remove); ocultamos
+  // el botón para no-admins. No es seguridad (vive en el backend), es UX.
+  const { isAdmin } = useAuth();
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 400);
@@ -75,14 +79,15 @@ export function PetsPage() {
     loadPets(debouncedSearch);
   }, [debouncedSearch, loadPets]);
 
-  async function handleSubmit(data: PetInput) {
+  async function handleSubmit(data: PetInput | PetUpdateInput) {
     setSubmitting(true);
     try {
       if (formPet) {
         await updatePet(formPet.id, data);
         toast.success('Mascota actualizada correctamente');
       } else {
-        await createPet(data);
+        // En modo crear, PetForm entrega un PetInput completo (sin nulls).
+        await createPet(data as PetInput);
         toast.success('Mascota creada correctamente');
       }
       setFormPet(undefined);
@@ -188,6 +193,7 @@ export function PetsPage() {
           ) : (
             <PetsList
               pets={pets}
+              canDelete={isAdmin}
               onEdit={(pet) => setFormPet(pet)}
               onDelete={(pet) => setDeleteTarget(pet)}
             />
@@ -231,10 +237,12 @@ export function PetsPage() {
 
 function PetsList({
   pets,
+  canDelete,
   onEdit,
   onDelete,
 }: {
   pets: Pet[];
+  canDelete: boolean;
   onEdit: (pet: Pet) => void;
   onDelete: (pet: Pet) => void;
 }) {
@@ -280,14 +288,16 @@ function PetsList({
                     >
                       Editar
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-danger hover:bg-red-50"
-                      onClick={() => onDelete(pet)}
-                    >
-                      Eliminar
-                    </Button>
+                    {canDelete ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-danger hover:bg-red-50"
+                        onClick={() => onDelete(pet)}
+                      >
+                        Eliminar
+                      </Button>
+                    ) : null}
                   </div>
                 </td>
               </tr>
@@ -328,15 +338,17 @@ function PetsList({
               >
                 Editar
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                fullWidth
-                className="text-danger hover:bg-red-50"
-                onClick={() => onDelete(pet)}
-              >
-                Eliminar
-              </Button>
+              {canDelete ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  fullWidth
+                  className="text-danger hover:bg-red-50"
+                  onClick={() => onDelete(pet)}
+                >
+                  Eliminar
+                </Button>
+              ) : null}
             </div>
           </div>
         ))}

@@ -1,0 +1,83 @@
+name: chat-service CI
+
+# Solo se dispara cuando cambia chat-service (o este mismo workflow),
+# para no reconstruir el resto de microservicios del monorepo.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'chat-service/**'
+      - '.github/workflows/chat-service-ci.yml'
+  pull_request:
+    paths:
+      - 'chat-service/**'
+      - '.github/workflows/chat-service-ci.yml'
+
+# Todos los comandos se ejecutan dentro de chat-service/.
+defaults:
+  run:
+    working-directory: chat-service
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # Base de datos efímera para las migraciones.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: chat_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:password@localhost:5432/chat_db?schema=public
+      JWT_SECRET: super_secret_key_2026
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: chat-service/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Generar cliente Prisma
+        run: npx prisma generate
+
+      - name: Build
+        run: npm run build
+
+      - name: Aplicar migraciones
+        run: npx prisma migrate deploy
+
+  docker:
+    # Valida el Dockerfile construyendo la imagen. No se hace push a ningún
+    # registry: el objetivo es demostrar integración continua.
+    needs: build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t nexopet-chat-service:ci ./chat-service
