@@ -30,8 +30,12 @@ export class PetsService {
     assertActor(actor);
 
     if (actor.role === Role.USER) {
+      // El cliente solo ve sus mascotas, pero la búsqueda también debe aplicarle.
       return this.prisma.pet.findMany({
-        where: { ownerId: actor.userId },
+        where: {
+          ownerId: actor.userId,
+          ...(search ? this.buildSearchFilter(search) : {}),
+        },
         orderBy: { createdAt: 'desc' },
       });
     }
@@ -158,20 +162,46 @@ export class PetsService {
   }
 
   private buildSearchFilter(search: string): Prisma.PetWhereInput {
+    const term = search.trim();
     const filters: Prisma.PetWhereInput[] = [
-      { name: { contains: search, mode: 'insensitive' } },
+      { name: { contains: term, mode: 'insensitive' } },
+      { breed: { contains: term, mode: 'insensitive' } },
     ];
 
-    // Si el término coincide con una especie del enum, también se filtra por ella.
+    // Si el término coincide con una especie (código del enum o etiqueta en
+    // español), también se filtra por ella.
     // (La búsqueda por nombre del dueño no es posible aquí: sus datos viven en la
     //  base de Auth. El enriquecimiento del dueño lo hace el gateway/frontend.)
-    const speciesMatch = Object.values(Species).find(
-      (value) => value === search.toUpperCase(),
-    );
-    if (speciesMatch) {
-      filters.push({ species: speciesMatch });
+    const species = this.matchSpecies(term);
+    if (species) {
+      filters.push({ species });
     }
 
     return { OR: filters };
+  }
+
+  /**
+   * Traduce un término de búsqueda a una especie del enum. Acepta tanto el código
+   * en inglés (`DOG`) como la etiqueta en español que usa el frontend (`Perro`).
+   */
+  private matchSpecies(term: string): Species | undefined {
+    const normalized = term.toUpperCase();
+
+    const direct = Object.values(Species).find((value) => value === normalized);
+    if (direct) {
+      return direct;
+    }
+
+    const labels: Record<string, Species> = {
+      PERRO: Species.DOG,
+      GATO: Species.CAT,
+      AVE: Species.BIRD,
+      PAJARO: Species.BIRD,
+      CONEJO: Species.RABBIT,
+      REPTIL: Species.REPTILE,
+      ROEDOR: Species.RODENT,
+      OTRO: Species.OTHER,
+    };
+    return labels[normalized];
   }
 }
